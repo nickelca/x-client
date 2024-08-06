@@ -19,12 +19,34 @@ pub const Window = enum(u32) {
         input_only,
         copy_from_parent,
     };
+
+    pub const Options = struct {
+        bg_pixmap: BgPixmap = .none,
+        bg_pixel: ?u32 = null, // TODO: What is this
+        border_pixmap: BorderPixmap = .copy_from_parent,
+        border_pixel: ?u32 = null, // TODO: What is this
+        bit_gravity: BitGravity = .forget,
+        win_gravity: Gravity = .north_west,
+        backing_store: BackingStore = .not_useful,
+        backing_planes: u32 = 0xffffffff, // TODO: What is this
+        backing_pixel: u32 = 0, // TODO: What is this
+        override_redirect: bool = false,
+        save_under: bool = false,
+        events: Event = .{},
+        dont_propagate: u32 = 0, // TODO: What is this
+        colormap: Colormap = .copy_from_parent,
+        cursor: Cursor = .none,
+    };
 };
+
+pub const BgPixmap = enum(u32) { none = 0, copy_from_parent = 1, _ };
+pub const BorderPixmap = enum(u32) { copy_from_parent = 0, _ };
+pub const BackingStore = enum(u32) { not_useful = 0, when_mapped = 1, always = 2 };
 pub const Pixmap = enum(u32) { _ };
-pub const Cursor = enum(u32) { _ };
+pub const Cursor = enum(u32) { none = 0, _ };
 pub const Font = enum(u32) { _ };
 pub const GContext = enum(u32) { _ };
-pub const Colormap = enum(u32) { _ };
+pub const Colormap = enum(u32) { copy_from_parent = 0, _ };
 
 pub const Drawable = union(enum) {
     window: Window,
@@ -56,19 +78,19 @@ pub const BitGravity = enum {
 pub const Event = packed struct(u32) {
     key_press: bool = false,
     key_release: bool = false,
-    owner_grab_button: bool = false,
     button_press: bool = false,
     button_release: bool = false,
     enter_window: bool = false,
     leave_window: bool = false,
     pointer_motion: bool = false,
-    pointer_motionHint: bool = false,
+    pointer_motion_hint: bool = false,
     button1_motion: bool = false,
     button2_motion: bool = false,
     button3_motion: bool = false,
     button4_motion: bool = false,
     button5_motion: bool = false,
     button_motion: bool = false,
+    keymap_state: bool = false,
     exposure: bool = false,
     visibility_change: bool = false,
     structure_notify: bool = false,
@@ -78,8 +100,35 @@ pub const Event = packed struct(u32) {
     focus_change: bool = false,
     property_change: bool = false,
     colormap_change: bool = false,
-    keymap_state: bool = false,
+    owner_grab_button: bool = false,
     _pad: u7 = 0,
+
+    pub const key_press: u32 = 1 << 0;
+    pub const key_release: u32 = 1 << 1;
+    pub const button_press: u32 = 1 << 2;
+    pub const button_release: u32 = 1 << 3;
+    pub const enter_window: u32 = 1 << 4;
+    pub const leave_window: u32 = 1 << 5;
+    pub const pointer_motion: u32 = 1 << 6;
+    pub const pointer_motion_hint: u32 = 1 << 7;
+    pub const button1_motion: u32 = 1 << 8;
+    pub const button2_motion: u32 = 1 << 9;
+    pub const button3_motion: u32 = 1 << 10;
+    pub const button4_motion: u32 = 1 << 11;
+    pub const button5_motion: u32 = 1 << 12;
+    pub const button_motion: u32 = 1 << 13;
+    pub const keymap_state: u32 = 1 << 14;
+    pub const exposure: u32 = 1 << 15;
+    pub const visibility_change: u32 = 1 << 16;
+    pub const structure_notify: u32 = 1 << 17;
+    pub const resize_redirect: u32 = 1 << 18;
+    pub const substructure_notify: u32 = 1 << 19;
+    pub const substructure_redirect: u32 = 1 << 20;
+    pub const focus_change: u32 = 1 << 21;
+    pub const property_change: u32 = 1 << 22;
+    pub const colormap_change: u32 = 1 << 23;
+    pub const owner_grab_button: u32 = 1 << 24;
+    pub const _pad: u32 = 0x7f << 25;
 };
 
 pub const PointerEvent = packed struct(u32) {
@@ -300,11 +349,6 @@ pub fn connSetup(
     unreachable; // TODO:
 }
 
-const Self = @This();
-test Self {
-    std.testing.refAllDeclsRecursive(Self);
-}
-
 /// Get the display environment variable
 /// ":0" if not defined
 /// Windows sometimes needs to allocate because it's a little silly
@@ -342,9 +386,9 @@ pub fn createWindow(
     width: u16,
     height: u16,
     border_width: u16,
-    value_mask: u32,
-    value_list: [*:0]u32,
+    options: Window.Options,
 ) CreateWindowError!void {
+    _ = options; // autofix
     _ = window_id; // autofix
     _ = parent_window_id; // autofix
     _ = class; // autofix
@@ -355,8 +399,11 @@ pub fn createWindow(
     _ = width; // autofix
     _ = height; // autofix
     _ = border_width; // autofix
-    _ = value_mask; // autofix
-    _ = value_list; // autofix
+}
+
+const Self = @This();
+test Self {
+    std.testing.refAllDeclsRecursive(Self);
 }
 
 const std = @import("std");
