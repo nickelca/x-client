@@ -287,15 +287,29 @@ pub fn connSetup(
     err_payload: void,
 ) ConnectError!ConnectResponse {
     var buf: [1096]u8 = undefined;
-    const byte_order: u8 = switch (native_endian) {
+    buf[0] = switch (native_endian) {
         .big => 'B',
         .little => 'l',
     };
-    _ = try std.fmt.bufPrint(&buf, "{c}", .{byte_order});
+    @memset(buf[1..2], 0); // unused
+    writeNativeInt(u16, buf[2..4], protocol.major);
+    writeNativeInt(u16, buf[4..6], protocol.minor);
+    const auth_name_len: u16 = @intCast(std.mem.len(auth.name));
+    const name_pad = pad(auth_name_len);
+    const auth_data_len: u16 = @intCast(std.mem.len(auth.data));
+    const data_pad = pad(auth_data_len);
+    writeNativeInt(u16, buf[6..8], auth_name_len);
+    writeNativeInt(u16, buf[8..10], auth_data_len);
+    @memset(buf[10..12], 0); // unused
+    @memcpy(buf[12..][0..auth_name_len], auth.name[0..auth_name_len]);
+    @memset(buf[12 + auth_name_len ..][0..name_pad], 0);
+    @memcpy(
+        buf[12 + auth_name_len + name_pad ..][0..auth_data_len],
+        auth.data[0..auth_data_len],
+    );
+    @memset(buf[12 + auth_name_len + name_pad + auth_data_len ..][0..data_pad], 0);
 
     _ = err_payload; // autofix
-    _ = protocol; // autofix
-    _ = auth; // autofix
     try conn.writeAll(&.{});
     unreachable; // TODO:
 }
@@ -342,26 +356,30 @@ pub fn createWindowBuf(
     buf[0] = @intFromEnum(opcode.Major.create_window);
     buf[1] = depth;
     // buf[2..4] is request length. Skip for now
-    writeNativeInt(u32, buf[4..], @intFromEnum(window_id));
-    writeNativeInt(u32, buf[8..], @intFromEnum(parent_window_id));
-    writeNativeInt(i16, buf[12..], x);
-    writeNativeInt(i16, buf[14..], y);
-    writeNativeInt(u16, buf[16..], width);
-    writeNativeInt(u16, buf[18..], height);
-    writeNativeInt(u16, buf[20..], border_width);
-    writeNativeInt(u16, buf[22..], @intFromEnum(class));
-    writeNativeInt(u32, buf[24..], @intFromEnum(visual));
+    writeNativeInt(u32, buf[4..8], @intFromEnum(window_id));
+    writeNativeInt(u32, buf[8..12], @intFromEnum(parent_window_id));
+    writeNativeInt(i16, buf[12..14], x);
+    writeNativeInt(i16, buf[14..16], y);
+    writeNativeInt(u16, buf[16..18], width);
+    writeNativeInt(u16, buf[18..20], height);
+    writeNativeInt(u16, buf[20..22], border_width);
+    writeNativeInt(u16, buf[22..24], @intFromEnum(class));
+    writeNativeInt(u32, buf[24..28], @intFromEnum(visual));
     _ = options; // TODO: figure out how to encode this
     unreachable; // not implemented
 }
 
 const native_endian = builtin.cpu.arch.endian();
-pub inline fn writeNativeInt(
+inline fn writeNativeInt(
     comptime T: type,
     buffer: *[@divExact(@typeInfo(T).Int.bits, 8)]u8,
     value: T,
 ) void {
-    std.mem.writeInt(T, buffer, value);
+    std.mem.writeInt(T, buffer, value, native_endian);
+}
+
+fn pad(n: usize) usize {
+    return @mod(4 - @mod(n, 4), 4);
 }
 
 const Self = @This();
