@@ -286,32 +286,28 @@ pub fn connSetup(
     auth: Auth,
     err_payload: void,
 ) ConnectError!ConnectResponse {
-    var buf: [1096]u8 = undefined;
-    buf[0] = switch (native_endian) {
+    var buf: std.BoundedArray(u8, 5096) = .{ .len = 0 };
+    const writer = buf.writer();
+    try writer.writeByte(switch (native_endian) {
         .big => 'B',
         .little => 'l',
-    };
-    @memset(buf[1..2], 0); // unused
-    writeNativeInt(u16, buf[2..4], protocol.major);
-    writeNativeInt(u16, buf[4..6], protocol.minor);
+    });
+    try writer.writeByteNTimes(0, 1); // unused
+    try writer.writeInt(u16, protocol.major, native_endian);
+    try writer.writeInt(u16, protocol.minor, native_endian);
     const auth_name_len: u16 = @intCast(std.mem.len(auth.name));
     const name_pad = pad(auth_name_len);
     const auth_data_len: u16 = @intCast(std.mem.len(auth.data));
     const data_pad = pad(auth_data_len);
-    writeNativeInt(u16, buf[6..8], auth_name_len);
-    writeNativeInt(u16, buf[8..10], auth_data_len);
-    @memset(buf[10..12], 0); // unused
-    @memcpy(buf[12..][0..auth_name_len], auth.name[0..auth_name_len]);
-    @memset(buf[12 + auth_name_len ..][0..name_pad], 0);
-    @memcpy(
-        buf[12 + auth_name_len + name_pad ..][0..auth_data_len],
-        auth.data[0..auth_data_len],
-    );
-    @memset(buf[12 + auth_name_len + name_pad + auth_data_len ..][0..data_pad], 0);
-
+    try writer.writeInt(u16, auth_name_len, native_endian);
+    try writer.writeInt(u16, auth_data_len, native_endian);
+    try writer.writeByteNTimes(0, 2); // unused
+    try writer.writeAll(auth.name[0..auth_name_len]);
+    try writer.writeByteNTimes(0, name_pad);
+    try writer.writeAll(auth.data[0..auth_data_len]);
+    try writer.writeByteNTimes(0, data_pad);
+    try conn.writeAll(buf.constSlice());
     _ = err_payload; // autofix
-    try conn.writeAll(&.{});
-    unreachable; // TODO:
 }
 
 /// Get the display environment variable
