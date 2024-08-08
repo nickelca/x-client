@@ -14,10 +14,10 @@ pub const Window = enum(u32) {
         static = 10,
     };
 
-    pub const Class = enum {
-        input_output,
-        input_only,
-        copy_from_parent,
+    pub const Class = enum(u16) {
+        copy_from_parent = 0,
+        input_output = 1,
+        input_only = 2,
     };
 
     pub const Options = struct {
@@ -60,7 +60,10 @@ pub const Fontable = union(enum) {
 
 pub const Atom = @import("atom.zig").Atom;
 
-pub const VisualId = enum(u32) { _ };
+pub const VisualId = enum(u32) {
+    copy_from_parent = 0,
+    _,
+};
 
 pub const BitGravity = enum {
     forget,
@@ -284,7 +287,7 @@ pub fn connSetup(
     err_payload: void,
 ) ConnectError!ConnectResponse {
     var buf: [1096]u8 = undefined;
-    const byte_order: u8 = switch (builtin.cpu.arch.endian()) {
+    const byte_order: u8 = switch (native_endian) {
         .big => 'B',
         .little => 'l',
     };
@@ -328,10 +331,7 @@ pub fn createWindowBuf(
     parent_window_id: Window,
     class: Window.Class,
     depth: u8,
-    visual: union(enum) {
-        id: VisualId,
-        copy_from_parent,
-    },
+    visual: VisualId,
     x: i16,
     y: i16,
     width: u16,
@@ -339,18 +339,29 @@ pub fn createWindowBuf(
     border_width: u16,
     options: Window.Options,
 ) CreateWindowError!void {
-    _ = buf; // autofix
-    _ = options; // autofix
-    _ = window_id; // autofix
-    _ = parent_window_id; // autofix
-    _ = class; // autofix
-    _ = depth; // autofix
-    _ = visual; // autofix
-    _ = x; // autofix
-    _ = y; // autofix
-    _ = width; // autofix
-    _ = height; // autofix
-    _ = border_width; // autofix
+    buf[0] = @intFromEnum(opcode.Major.create_window);
+    buf[1] = depth;
+    // buf[2..4] is request length. Skip for now
+    writeNativeInt(u32, buf[4..], @intFromEnum(window_id));
+    writeNativeInt(u32, buf[8..], @intFromEnum(parent_window_id));
+    writeNativeInt(i16, buf[12..], x);
+    writeNativeInt(i16, buf[14..], y);
+    writeNativeInt(u16, buf[16..], width);
+    writeNativeInt(u16, buf[18..], height);
+    writeNativeInt(u16, buf[20..], border_width);
+    writeNativeInt(u16, buf[22..], @intFromEnum(class));
+    writeNativeInt(u32, buf[24..], @intFromEnum(visual));
+    _ = options; // TODO: figure out how to encode this
+    unreachable; // not implemented
+}
+
+const native_endian = builtin.cpu.arch.endian();
+pub inline fn writeNativeInt(
+    comptime T: type,
+    buffer: *[@divExact(@typeInfo(T).Int.bits, 8)]u8,
+    value: T,
+) void {
+    std.mem.writeInt(T, buffer, value);
 }
 
 const Self = @This();
