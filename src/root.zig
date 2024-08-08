@@ -198,14 +198,6 @@ pub const Error = error{
 
 pub const Socket = std.io.AnyWriter;
 
-pub fn sendEndianness(conn: Socket) !void {
-    const c: u8 = switch (builtin.cpu.arch.endian()) {
-        .big => 'B',
-        .little => 'l',
-    };
-    try conn.writeAll(&.{c});
-}
-
 pub const Protocol = struct {
     major: u16,
     minor: u16,
@@ -282,10 +274,7 @@ pub const ConnectResponse = struct {
     max_keycode: Key.Code,
 };
 
-/// Major opcodes 128 through 255 are reserved for extensions
-const MajorOpcode = enum(u8) {
-    _,
-};
+const opcode = @import("opcode.zig");
 
 const ConnectError = error{ Failed, Authenticate } || Socket.Error;
 pub fn connSetup(
@@ -294,6 +283,13 @@ pub fn connSetup(
     auth: Auth,
     err_payload: void,
 ) ConnectError!ConnectResponse {
+    var buf: [1096]u8 = undefined;
+    const byte_order: u8 = switch (builtin.cpu.arch.endian()) {
+        .big => 'B',
+        .little => 'l',
+    };
+    _ = try std.fmt.bufPrint(&buf, "{c}", .{byte_order});
+
     _ = err_payload; // autofix
     _ = protocol; // autofix
     _ = auth; // autofix
