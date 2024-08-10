@@ -1,9 +1,11 @@
 const Self = @This();
 
-protocol: void, // TODO: What is this
-host: []const u8,
+protocol: ?Protocol,
+host: ?[]const u8,
 number: u16,
 screen: void, // TODO: What is this
+
+const Protocol = enum { unix, tcp, inet, inet6 };
 
 /// Get the display environment variable
 /// ":0" if not defined
