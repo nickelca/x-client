@@ -3,7 +3,7 @@ const Self = @This();
 protocol: ?Protocol,
 host: ?[]const u8,
 number: u16,
-screen: void, // TODO: What is this
+screen: ?u32, // TODO: What is this? Leave as u32 for now
 
 const Protocol = enum { unix, tcp, inet, inet6 };
 
@@ -24,15 +24,57 @@ const ParseError = error{
     InvalidScreenNumber,
 };
 /// Parse a display variable into a Display struct
-/// Format: HOST:DISPLAYNUM[.SCREEN]
+/// Format: [PROTOCOL/]HOST:DISPLAYNUM[.SCREEN]
 /// ex:
 ///     localhost:10.0
 ///     -> host: localhost
 ///     -> displaynum: 10
 ///     -> screen: 0
 pub fn parse(display: []const u8) ParseError!Self {
-    _ = display; // autofix
-    unreachable; // unimplemented
+    var main_parts = std.mem.splitScalar(u8, display, ':');
+
+    const protocol, const host = blk: {
+        const proto_and_host = main_parts.next() orelse return ParseError.MalformedInput;
+        break :blk try parseLeft(proto_and_host);
+    };
+    const displaynum, const screen = blk: {
+        var displaynum_and_screen = main_parts.next() orelse return ParseError.MissingDisplayNumber;
+        if (std.mem.eql(u8, displaynum_and_screen, "")) {
+            displaynum_and_screen = main_parts.next() orelse return ParseError.MissingDisplayNumber;
+        }
+        if (std.mem.eql(u8, displaynum_and_screen, "")) {
+            return ParseError.MissingDisplayNumber;
+        }
+        break :blk try parseRight(displaynum_and_screen);
+    };
+    return .{
+        .protocol = protocol,
+        .host = host,
+        .num = displaynum,
+        .screen = screen,
+    };
+}
+
+fn parseLeft(proto_and_host: []const u8) !struct { ?[]const u8, ?[]const u8 } {
+    var itt = std.mem.splitScalar(u8, proto_and_host, '/');
+    const proto = itt.next() orelse null;
+    const host = itt.next() orelse null;
+    if (itt.next()) return ParseError.MalformedInput;
+    return .{ proto, host };
+}
+
+fn parseRight(displaynum_and_screen: []const u8) !struct { u16, ?u32 } {
+    var itt = std.mem.splitScalar(u8, displaynum_and_screen, '.');
+    const displaynum_s = itt.next() orelse return ParseError.MissingDisplayNumber;
+    const screen_s = itt.next();
+    if (itt.next()) return ParseError.MalformedInput;
+    const displaynum = std.fmt.parseInt(u16, displaynum_s, 10) catch {
+        return ParseError.InvalidDisplayNumber;
+    };
+    const screen = if (screen_s) std.fmt.parseInt(u32, screen_s, 10) catch {
+        return ParseError.InvalidScreenNumber;
+    } else null;
+    return .{ displaynum, screen };
 }
 
 pub fn fromEnvVar(alloc: std.mem.Allocator) !Self {
