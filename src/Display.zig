@@ -9,7 +9,7 @@ screen: void, // TODO: What is this
 /// ":0" if not defined
 /// Windows sometimes needs to allocate because it's a little silly
 pub fn getEnvVar(alloc: std.mem.Allocator) ![]const u8 {
-    return switch (@import("builtin").os.tag) {
+    return switch (builtin.os.tag) {
         .windows => std.process.getEnvVarOwned(alloc, "DISPLAY") catch |err| switch (err) {
             error.EnvironmentVariableNotFound => ":0",
             else => err,
@@ -38,7 +38,9 @@ pub fn parse(display: []const u8) ParseError!Self {
 
 pub fn fromEnvVar(alloc: std.mem.Allocator) !Self {
     const display_string = try getEnvVar(alloc);
+    defer if (builtin.os.tag == .windows) alloc.free(display_string);
     return parse(display_string);
 }
 
+const builtin = @import("builtin");
 const std = @import("std");
