@@ -22,7 +22,7 @@ const ParseError = error{
     InvalidScreenNumber,
 };
 /// Parse a display variable into a Display struct
-/// Format: [PROTOCOL/]HOST:DISPLAYNUM[.SCREEN]
+/// Format: HOST:DISPLAYNUM[.SCREEN]
 /// ex:
 ///     localhost:10.0
 ///     -> host: localhost
@@ -34,8 +34,10 @@ pub fn parse(display: []const u8) ParseError!Self {
 }
 
 pub fn fromEnvVar(alloc: std.mem.Allocator) !Self {
-    const display_string = try getEnvVar(alloc);
-    defer alloc.free(display_string);
+    var sfa = std.heap.stackFallback(1024, alloc);
+    const sfa_alloc = sfa.get();
+    const display_string = try getEnvVar(sfa_alloc);
+    defer sfa_alloc.free(display_string);
     return parse(display_string);
 }
 
