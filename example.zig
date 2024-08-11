@@ -3,6 +3,9 @@ pub fn main() !void {
     const alloc = arena.allocator();
     defer arena.deinit();
 
+    try x.conn.wsaStartup();
+    defer x.conn.wsaCleanup();
+
     const display = try x.Display.fromEnvVar(alloc);
     defer display.destroy(alloc);
     const socket = try x.conn.connect(alloc, display);

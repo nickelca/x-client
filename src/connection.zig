@@ -1,6 +1,24 @@
 const base_tcp_port = 6000;
 const base_fd_path = "/tmp/.X11-unix/X";
 
+/// Setup WSA on Windows
+/// No-op on non-Windows
+pub fn wsaStartup() !void {
+    if (builtin.os.tag == .windows) {
+        _ = try std.os.windows.WSAStartup(2, 2);
+    }
+}
+
+/// Cleanup WSA on Windows
+/// No-op on non-Windows
+pub fn wsaCleanup() !void {
+    if (builtin.os.tag == .windows) {
+        try std.os.windows.WSACleanup();
+    }
+}
+
+/// Connect to X server
+/// TODO: Sockets on windows?
 pub fn connect(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
     if (builtin.os.tag == .windows and display.protocol == .unix) return error.UnixNotSupported;
     if (builtin.os.tag == .windows and display.host == null) return error.MissingHost;
@@ -12,8 +30,13 @@ pub fn connect(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
     }
 }
 
+/// Disconnect from X server
+pub fn disconnect(sock: std.net.Stream) void {
+    sock.close();
+}
+
 /// Connect to X server via sockets. If the socket is not found, fall back to TCP
-pub fn connectUnix(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
+fn connectUnix(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
     return connectFd(alloc, display) catch |err| switch (err) {
         error.FileNotFound => if (display.display_number == .socket_path)
             err
@@ -25,12 +48,12 @@ pub fn connectUnix(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream
 
 /// Connect to X server via TCP
 /// Asserts display.display_number.number is active
-pub fn connectTcp(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
+fn connectTcp(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
     return std.net.tcpConnectToHost(alloc, display.host orelse "localhost", base_tcp_port + display.display_number.number);
 }
 
 /// Connect to X server via Socket
-pub fn connectFd(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
+fn connectFd(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
     switch (display.display_number) {
         .socket_path => |path| {
             return std.net.connectUnixSocket(path);
@@ -53,11 +76,6 @@ pub fn connectFd(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
             },
         },
     }
-}
-
-/// Disconnect from X server
-pub fn disconnect(sock: std.net.Stream) void {
-    sock.close();
 }
 
 const builtin = @import("builtin");
