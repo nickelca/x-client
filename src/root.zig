@@ -256,7 +256,7 @@ const opcode = @import("opcode.zig");
 
 pub const Display = @import("Display.zig");
 
-pub const ConnectResponse = struct {
+pub const SetupResponse = struct {
     const BitmapInfo = struct {
         const Value = enum(u8) {
             @"8" = 8,
@@ -281,13 +281,12 @@ pub const ConnectResponse = struct {
     max_keycode: Key.Code,
 };
 
-const ConnectError = error{ Failed, Authenticate } || error{Overflow} || conn.Socket.Error;
 pub fn setup(
-    sock: conn.Socket,
+    sock: std.net.Stream,
     protocol: Protocol,
     auth: Auth,
     err_payload: void,
-) ConnectError!ConnectResponse {
+) !SetupResponse {
     var buf: std.BoundedArray(u8, 5096) = .{ .len = 0 };
     const writer = buf.writer();
     try writer.writeByte(switch (native_endian) {
@@ -310,6 +309,7 @@ pub fn setup(
     try writer.writeByteNTimes(0, data_pad);
     try sock.writeAll(buf.constSlice());
     _ = err_payload; // autofix
+    unreachable; // unimplemented
 }
 
 pub const CreateWindowError = error{

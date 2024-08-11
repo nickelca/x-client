@@ -116,7 +116,7 @@ pub fn fromEnvVar(alloc: std.mem.Allocator) !Self {
         disp.host = try alloc.dupe(u8, host);
     }
     switch (disp.display_number) {
-        .socket_path => |path| disp.display_number = try alloc.dupe(u8, path),
+        .socket_path => |path| disp.display_number = .{ .socket_path = try alloc.dupe(u8, path) },
         else => {},
     }
     return disp;
