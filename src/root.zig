@@ -199,7 +199,7 @@ pub const Error = error{
     window,
 };
 
-const conn = @import("connection.zig");
+pub const conn = @import("connection.zig");
 
 pub const Protocol = struct {
     major: u16,

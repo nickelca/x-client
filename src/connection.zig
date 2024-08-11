@@ -26,7 +26,7 @@ pub fn connectUnix(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream
 /// Connect to X server via TCP
 /// Asserts display.display_number.number is active
 pub fn connectTcp(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
-    return std.net.tcpConnectToHost(alloc, display.host, base_tcp_port + display.display_number.number);
+    return std.net.tcpConnectToHost(alloc, display.host orelse "localhost", base_tcp_port + display.display_number.number);
 }
 
 /// Connect to X server via Socket
@@ -35,19 +35,19 @@ pub fn connectFd(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
         .socket_path => |path| {
             return std.net.connectUnixSocket(path);
         },
-        .number => switch (builtin.target.os.tag) {
+        .number => |number| switch (builtin.target.os.tag) {
             .linux => {
                 var buf: [std.os.linux.PATH_MAX]u8 = undefined;
-                const fd_path = try std.fmt.bufPrint(&buf, base_fd_path ++ "{d}", .{display.number});
+                const fd_path = try std.fmt.bufPrint(&buf, base_fd_path ++ "{d}", .{number});
                 return std.net.connectUnixSocket(fd_path);
             },
             .windows => {
                 var buf: [std.os.windows.MAX_PATH]u8 = undefined;
-                const fd_path = try std.fmt.bufPrint(&buf, base_fd_path ++ "{d}", .{display.number});
+                const fd_path = try std.fmt.bufPrint(&buf, base_fd_path ++ "{d}", .{number});
                 return std.net.connectUnixSocket(fd_path);
             },
             else => {
-                const fd_path = try std.fmt.allocPrint(alloc, base_fd_path ++ "{d}", .{display.number});
+                const fd_path = try std.fmt.allocPrint(alloc, base_fd_path ++ "{d}", .{number});
                 defer alloc.free(fd_path);
                 return std.net.connectUnixSocket(fd_path);
             },
