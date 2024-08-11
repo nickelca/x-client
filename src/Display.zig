@@ -1,6 +1,6 @@
 const Self = @This();
 
-protocol: ?Protocol,
+protocol: Protocol,
 host: ?[]const u8,
 display_number: DisplayNumber,
 screen: ?u32,
