@@ -2,10 +2,13 @@ const base_tcp_port = 6000;
 const base_fd_path = "/tmp/.X11-unix/X";
 
 pub fn connect(alloc: std.mem.Allocator, display: x.Display) !std.net.Stream {
+    if (builtin.os.tag == .windows and display.protocol == .unix) return error.UnixNotSupported;
+    if (builtin.os.tag == .windows and display.host == null) return error.MissingHost;
+
     switch (display.protocol) {
         .unix => return connectUnix(alloc, display),
         .tcp => return connectTcp(alloc, display),
-        .decnet => @panic("Unimplemented."), // TODO: How to connect to DECnet
+        .decnet => return error.DECNetUnimplemented, // TODO: How to connect to DECnet
     }
 }
 
