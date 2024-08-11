@@ -297,9 +297,9 @@ pub fn setup(
     try writer.writeInt(u16, protocol.major, native_endian);
     try writer.writeInt(u16, protocol.minor, native_endian);
     const auth_name_len: u16 = @intCast(std.mem.len(auth.name));
-    const name_pad = pad(auth_name_len);
+    const name_pad = common.pad(auth_name_len);
     const auth_data_len: u16 = @intCast(std.mem.len(auth.data));
-    const data_pad = pad(auth_data_len);
+    const data_pad = common.pad(auth_data_len);
     try writer.writeInt(u16, auth_name_len, native_endian);
     try writer.writeInt(u16, auth_data_len, native_endian);
     try writer.writeByteNTimes(0, 2); // unused
@@ -312,65 +312,13 @@ pub fn setup(
     unreachable; // unimplemented
 }
 
-pub const CreateWindowError = error{
-    alloc,
-    colormap,
-    cursor,
-    id_choice,
-    match,
-    pixmap,
-    value,
-    window,
-};
-
-/// Create a createWindow payload to be sent to XServer
-pub fn createWindowBuf(
-    buf: []u8,
-    window_id: Window,
-    parent_window_id: Window,
-    class: Window.Class,
-    depth: u8,
-    visual: VisualId,
-    x: i16,
-    y: i16,
-    width: u16,
-    height: u16,
-    border_width: u16,
-    options: Window.Options,
-) CreateWindowError!void {
-    buf[0] = @intFromEnum(opcode.Major.create_window);
-    buf[1] = depth;
-    // buf[2..4] is request length. Skip for now
-    writeNativeInt(u32, buf[4..8], @intFromEnum(window_id));
-    writeNativeInt(u32, buf[8..12], @intFromEnum(parent_window_id));
-    writeNativeInt(i16, buf[12..14], x);
-    writeNativeInt(i16, buf[14..16], y);
-    writeNativeInt(u16, buf[16..18], width);
-    writeNativeInt(u16, buf[18..20], height);
-    writeNativeInt(u16, buf[20..22], border_width);
-    writeNativeInt(u16, buf[22..24], @intFromEnum(class));
-    writeNativeInt(u32, buf[24..28], @intFromEnum(visual));
-    _ = options; // TODO: figure out how to encode this
-    unreachable; // not implemented
-}
-
 const native_endian = builtin.cpu.arch.endian();
-inline fn writeNativeInt(
-    comptime T: type,
-    buffer: *[@divExact(@typeInfo(T).Int.bits, 8)]u8,
-    value: T,
-) void {
-    std.mem.writeInt(T, buffer, value, native_endian);
-}
-
-fn pad(n: usize) usize {
-    return @mod(4 - @mod(n, 4), 4);
-}
 
 const Self = @This();
 test Self {
     std.testing.refAllDeclsRecursive(Self);
 }
 
+const common = @import("common.zig");
 const std = @import("std");
 const builtin = @import("builtin");
