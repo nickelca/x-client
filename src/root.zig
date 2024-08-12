@@ -58,8 +58,6 @@ pub const Fontable = union(enum) {
     pixmap: GContext,
 };
 
-pub const Atom = @import("atom.zig").Atom;
-
 pub const VisualId = enum(u32) {
     copy_from_parent = 0,
     _,
@@ -78,8 +76,6 @@ pub const BitGravity = enum {
     south,
     south_east,
 };
-
-pub const event = @import("event.zig");
 
 pub const PointerEvent = packed struct(u32) {
     button_press: bool = false,
@@ -199,16 +195,9 @@ pub const Error = error{
     window,
 };
 
-pub const conn = @import("connection.zig");
-
 pub const Protocol = struct {
     major: u16,
     minor: u16,
-};
-
-pub const Auth = struct {
-    name: [*:0]u8,
-    data: [*:0]u8,
 };
 
 const ResourceId = struct { base: u32, mask: u32 };
@@ -252,73 +241,32 @@ pub const Screen = struct {
     current_input_masks: event.Flags,
 };
 
-const opcode = @import("opcode.zig");
-
-pub const Display = @import("Display.zig");
-
-pub const SetupResponse = struct {
-    const BitmapInfo = struct {
-        const Value = enum(u8) {
-            @"8" = 8,
-            @"16" = 16,
-            @"32" = 32,
-        };
-        scanline_unit: Value,
-        scanline_pad: Value,
-        endian: std.builtin.Endian,
-    };
-    protocol: Protocol,
-    vendor: [*:0]u8,
-    release_number: u32,
-    resource_id: ResourceId,
-    image_endian: std.builtin.Endian,
-    bitmap: BitmapInfo,
-    pixmap_formats: [*:null]?Format,
-    roots: [*:null]?Screen,
-    motion_buffer_size: u32,
-    maximum_request_length: u16,
-    min_keycode: Key.Code,
-    max_keycode: Key.Code,
-};
-
-pub fn setup(
-    sock: std.net.Stream,
-    protocol: Protocol,
-    auth: Auth,
-    err_payload: void,
-) !SetupResponse {
-    var buf: std.BoundedArray(u8, 5096) = .{ .len = 0 };
-    const writer = buf.writer();
-    try writer.writeByte(switch (native_endian) {
-        .big => 'B',
-        .little => 'l',
-    });
-    try writer.writeByteNTimes(0, 1); // unused
-    try writer.writeInt(u16, protocol.major, native_endian);
-    try writer.writeInt(u16, protocol.minor, native_endian);
-    const auth_name_len: u16 = @intCast(std.mem.len(auth.name));
-    const name_pad = common.pad(auth_name_len);
-    const auth_data_len: u16 = @intCast(std.mem.len(auth.data));
-    const data_pad = common.pad(auth_data_len);
-    try writer.writeInt(u16, auth_name_len, native_endian);
-    try writer.writeInt(u16, auth_data_len, native_endian);
-    try writer.writeByteNTimes(0, 2); // unused
-    try writer.writeAll(auth.name[0..auth_name_len]);
-    try writer.writeByteNTimes(0, name_pad);
-    try writer.writeAll(auth.data[0..auth_data_len]);
-    try writer.writeByteNTimes(0, data_pad);
-    try sock.writeAll(buf.constSlice());
-    _ = err_payload; // autofix
-    unreachable; // unimplemented
+pub fn sendAlloc(alloc: std.mem.Allocator, server: std.net.Stream, payload: []const u8) ![]const u8 {
+    try server.writeAll(payload);
+    return server.reader().readAllAlloc(alloc, 5096);
 }
 
-const native_endian = builtin.cpu.arch.endian();
+pub fn sendBuf(response_buf: []u8, server: std.net.Stream, payload: []const u8) ![]const u8 {
+    try server.writeAll(payload);
+    const read = try server.readAll(response_buf);
+    return response_buf[0..read];
+}
+
+pub const Display = @import("Display.zig");
+pub const Atom = @import("atom.zig").Atom;
+pub const event = @import("event.zig");
+pub const Auth = @import("Auth.zig");
+
+pub const conn = @import("connection.zig");
+pub const auth = @import("auth.zig");
+pub const setup = @import("setup.zig");
+pub const create_window = @import("create_window.zig");
+
+const common = @import("common.zig");
+const std = @import("std");
+const builtin = @import("builtin");
 
 const Self = @This();
 test Self {
     std.testing.refAllDeclsRecursive(Self);
 }
-
-const common = @import("common.zig");
-const std = @import("std");
-const builtin = @import("builtin");
