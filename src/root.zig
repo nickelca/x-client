@@ -243,7 +243,8 @@ pub const Screen = struct {
 
 pub fn sendAlloc(alloc: std.mem.Allocator, server: std.net.Stream, payload: []const u8) ![]const u8 {
     try server.writeAll(payload);
-    return server.reader().readAllAlloc(alloc, 5096);
+    std.debug.print("sent\n", .{});
+    return server.reader().readAllAlloc(alloc, 65536);
 }
 
 pub fn sendBuf(response_buf: []u8, server: std.net.Stream, payload: []const u8) ![]const u8 {
@@ -258,7 +259,6 @@ pub const event = @import("event.zig");
 pub const Auth = @import("Auth.zig");
 
 pub const conn = @import("connection.zig");
-pub const auth = @import("auth.zig");
 pub const setup = @import("setup.zig");
 pub const create_window = @import("create_window.zig");
 
