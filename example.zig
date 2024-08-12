@@ -11,12 +11,12 @@ pub fn main() !void {
     const server = try x.conn.connect(alloc, display);
     defer x.conn.disconnect(server);
 
-    const auth = try x.Auth.fromAuthFile(alloc, display);
-    defer auth.destroy(alloc);
+    // const auth = try x.Auth.fromAuthFile(alloc, display);
+    // defer auth.destroy(alloc);
     const setup = try x.setup.createAlloc(
         alloc,
         .{ .major = 11, .minor = 0 },
-        auth,
+        .{ .name = &.{}, .data = &.{} },
     );
     defer alloc.free(setup);
     const response = try x.sendAlloc(alloc, server, setup);

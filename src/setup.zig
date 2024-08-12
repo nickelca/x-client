@@ -23,6 +23,7 @@ pub const Response = struct {
     max_keycode: x.Key.Code,
 };
 
+/// TODO: Encode auth information properly
 pub fn createAlloc(
     alloc: std.mem.Allocator,
     protocol: x.Protocol,

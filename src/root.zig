@@ -243,7 +243,6 @@ pub const Screen = struct {
 
 pub fn sendAlloc(alloc: std.mem.Allocator, server: std.net.Stream, payload: []const u8) ![]const u8 {
     try server.writeAll(payload);
-    std.debug.print("sent\n", .{});
     return server.reader().readAllAlloc(alloc, 65536);
 }
 
