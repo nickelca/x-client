@@ -13,15 +13,43 @@ pub fn main() !void {
 
     // const auth = try x.Auth.fromAuthFile(alloc, display);
     // defer auth.destroy(alloc);
-    const setup = try x.setup.createAlloc(
+    var err_info: x.setup.Error = undefined;
+    const response = x.setup.createAndSendAlloc(
         alloc,
+        server,
         .{ .major = 11, .minor = 0 },
         .{ .name = &.{}, .data = &.{} },
-    );
-    defer alloc.free(setup);
-    const response = try x.sendAlloc(alloc, server, setup);
-    defer alloc.free(response);
-    std.debug.print("{any}\n", .{response});
+        &err_info,
+    ) catch |err| switch (err) {
+        error.ConnectionRefused => {
+            std.debug.print(
+                \\protocol:{d}.{d}
+                \\reason:{s}
+                \\extra:{d}
+                \\
+            , .{
+                err_info.connection_refused.protocol.major,
+                err_info.connection_refused.protocol.minor,
+                err_info.connection_refused.reason,
+                err_info.connection_refused.extra_data,
+            });
+            return err;
+        },
+        error.FurtherAuth => {
+            std.debug.print(
+                \\reason:{s}
+                \\extra:{d}
+                \\
+            , .{
+                err_info.further_auth.reason,
+                err_info.further_auth.extra_data,
+            });
+            return err;
+        },
+        else => return err,
+    };
+    _ = response; // autofix
+    // std.debug.print("{any}\n", .{response});
 }
 
 const x = @import("src/root.zig");

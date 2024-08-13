@@ -200,7 +200,7 @@ pub const Protocol = struct {
     minor: u16,
 };
 
-const ResourceId = struct { base: u32, mask: u32 };
+pub const ResourceId = struct { base: u32, mask: u32 };
 
 pub const Format = struct {
     depth: u8,
