@@ -102,14 +102,12 @@ pub const Error = union(enum) {
 const ConnectionRefused = struct {
     protocol: x.Protocol,
     reason: []const u8,
-    extra_data: u16, // TODO: What is this?
 
     fn read(alloc: std.mem.Allocator, buf: []const u8) !ConnectionRefused {
         var response: ConnectionRefused = undefined;
         const reason = try alloc.alloc(u8, buf[1]);
         response.protocol.major = std.mem.readInt(u16, buf[2..4], native_endian);
         response.protocol.minor = std.mem.readInt(u16, buf[4..6], native_endian);
-        response.extra_data = std.mem.readInt(u16, buf[6..8], native_endian);
         @memcpy(reason, buf[8..][0..reason.len]);
         response.reason = reason;
         return response;
@@ -122,22 +120,17 @@ const ConnectionRefused = struct {
 
 const FurtherAuth = struct {
     reason: []const u8,
-    extra_data: u16, // TODO: What is this?
 
     fn read(alloc: std.mem.Allocator, buf: []const u8) !FurtherAuth {
-        // 1     2                 Authenticate
-        // 5                       unused
-        // 2     (n+p)/4           length in 4-byte units of "additional data"
-        // n     STRING8           reason
-        // p                       unused, p=pad(n)
-        // TODO: second byte is not `n`. Treat reason as null-terminated.
-        //       if we end up with garbage bytes then oh well. Nothing I can do
         std.debug.print("{d}\n", .{buf});
         var response: FurtherAuth = undefined;
-        // this must be n?
-        const reason = try alloc.alloc(u8, buf[1]);
-        response.extra_data = std.mem.readInt(u16, buf[6..8], native_endian);
-        @memcpy(reason, buf[8..][0..reason.len]);
+        const max_length = std.mem.readInt(u16, buf[6..8], native_endian) * 4;
+        const rest = buf[8..][0..max_length];
+        // `n` is not explicitly given. Best thing we can do is treat reason as
+        // null-terminated. Nothing I can do if we end up with garbage bytes
+        const length = std.mem.indexOfScalar(u8, rest, 0) orelse max_length;
+        const reason = try alloc.alloc(u8, length);
+        @memcpy(reason, rest[0..length]);
         response.reason = reason;
         return response;
     }

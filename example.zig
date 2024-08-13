@@ -25,24 +25,20 @@ pub fn main() !void {
             std.debug.print(
                 \\protocol:{d}.{d}
                 \\reason:{s}
-                \\extra:{d}
                 \\
             , .{
                 err_info.connection_refused.protocol.major,
                 err_info.connection_refused.protocol.minor,
                 err_info.connection_refused.reason,
-                err_info.connection_refused.extra_data,
             });
             return err;
         },
         error.FurtherAuth => {
             std.debug.print(
                 \\reason:{s}
-                \\extra:{d}
                 \\
             , .{
                 err_info.further_auth.reason,
-                err_info.further_auth.extra_data,
             });
             return err;
         },
