@@ -34,7 +34,7 @@ pub fn createAndSendAlloc(
     server: std.net.Stream,
     protocol: x.Protocol,
     auth: x.Auth,
-    /// This will only be populated if an error other than MalformedResponse occurs
+    /// This will only be populated if error.ConnectionRefused or error.FurtherAuth occurs
     error_info: *Error,
 ) !Success {
     const payload = try createAlloc(alloc, protocol, auth);

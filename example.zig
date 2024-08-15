@@ -11,14 +11,14 @@ pub fn main() !void {
     const server = try x.conn.connect(alloc, display);
     defer x.conn.disconnect(server);
 
-    // const auth = try x.Auth.fromAuthFile(alloc, display);
-    // defer auth.destroy(alloc);
+    const auth = try x.Auth.fromAuthFile(alloc, display);
+    defer auth.destroy(alloc);
     var err_info: x.setup.Error = undefined;
     const response = x.setup.createAndSendAlloc(
         alloc,
         server,
         .{ .major = 11, .minor = 0 },
-        .{ .name = &.{}, .data = &.{} },
+        auth,
         &err_info,
     ) catch |err| switch (err) {
         error.ConnectionRefused => {
