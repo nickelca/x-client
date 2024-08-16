@@ -65,6 +65,17 @@ fn getAuthFilePathPosix(alloc: std.mem.Allocator) !?[]const u8 {
     return null;
 }
 
+/// https://gitlab.freedesktop.org/xorg/lib/libxau
+/// binary serialized sequence of entries
+/// 2 bytes    CARD16     family value (second byte is as in protocol HOST)
+/// 2 bytes    a          address length (always MSB first)
+/// a bytes    STRING8    host address (as in protocol HOST)
+/// 2 bytes    s          display "number" length (always MSB first)
+/// s bytes    STRING8    display "number"
+/// 2 bytes    n          name length (always MSB first)
+/// n bytes    STRING8    authorization name string
+/// 2 bytes    d          data length (always MSB first)
+/// d bytes    STRING8    authorization data
 fn readAuthFile(alloc: std.mem.Allocator, path: []const u8) ![]const AuthFileEntry {
     var entries = std.ArrayList(AuthFileEntry).init(alloc);
     errdefer entries.deinit();

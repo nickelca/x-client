@@ -1,3 +1,37 @@
+//! X documentation
+//! https://x.org/releases/X11R7.7/doc/xproto/x11protocol.html
+//! https://www.x.org/docs/XProtocol/proto.pdf
+//!
+//! Request Format
+//! 1    CARD8    Major opcode
+//! 2    CARD16   Total length of data (header + data)
+//! 1             unused
+//! 1    CARD8    "data byte" (typically extension minor opcode)
+//! n             data
+//!
+//! Reply Format
+//! n             any
+//! 4    CARD32   Total length of data
+//! m             any
+//! 2    CARD16   Least significant 16 bits of sequence number
+//! o             any
+//!
+//! Error Format
+//! 1    0        error
+//! 1             error code
+//! 2    CARD16   sequence number
+//! 4    CARD16   context
+//! 2    CARD16   minor opcode
+//! 1    CARD8    major opcode
+//! 21            unused
+//!
+//! Event Format
+//! 1             event code
+//! 1             detail
+//! 2    CARD16   sequence number
+//! 4    CARD16   context
+//! n             event info
+
 pub const Window = enum(u32) {
     _,
     pub const Gravity = enum(u16) {
