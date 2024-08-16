@@ -1,4 +1,22 @@
-/// TODO: Encode auth information properly
+/// Get the length of a setup packet
+pub fn length(auth_name_len: u16, auth_data_len: u16) usize {
+    var total: usize = 0;
+    total += 1; // byte order
+    total += 1; // unused
+    total += 2; // protocol major version
+    total += 2; // protocol minor version
+    total += 2; // authorization name length
+    total += 2; // authorization data length
+    total += 2; // unused
+    total += auth_name_len; // authorization name
+    total += common.pad(auth_name_len); // authorization name padding
+    total += auth_data_len; // authorization data
+    total += common.pad(auth_data_len); // authorization data padding
+    return total;
+}
+
+pub const max_length = length(std.math.maxInt(u16), std.math.maxInt(u16));
+
 pub fn createAlloc(
     alloc: std.mem.Allocator,
     protocol: x.Protocol,
@@ -124,13 +142,13 @@ const FurtherAuth = struct {
     fn read(alloc: std.mem.Allocator, buf: []const u8) !FurtherAuth {
         std.debug.print("{d}\n", .{buf});
         var response: FurtherAuth = undefined;
-        const max_length = std.mem.readInt(u16, buf[6..8], native_endian) * 4;
-        const rest = buf[8..][0..max_length];
+        const max_len = std.mem.readInt(u16, buf[6..8], native_endian) * 4;
+        const rest = buf[8..][0..max_len];
         // `n` is not explicitly given. Best thing we can do is treat reason as
         // null-terminated. Nothing I can do if we end up with garbage bytes
-        const length = std.mem.indexOfScalar(u8, rest, 0) orelse max_length;
-        const reason = try alloc.alloc(u8, length);
-        @memcpy(reason, rest[0..length]);
+        const len = std.mem.indexOfScalar(u8, rest, 0) orelse max_len;
+        const reason = try alloc.alloc(u8, len);
+        @memcpy(reason, rest[0..len]);
         response.reason = reason;
         return response;
     }

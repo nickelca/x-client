@@ -5,6 +5,7 @@ data: []const u8,
 
 /// Attempt to find auth file, deserialize, and find corresponding entry
 /// Caller owns .name and .data
+/// TODO: Check for hostname (null & localhost and its addresses & network name are equal)
 pub fn fromAuthFile(alloc: std.mem.Allocator, display: Display) !Self {
     const auth_file_path = (try getAuthFilePath(alloc)) orelse return error.AuthFileNotFound;
     defer alloc.free(auth_file_path);
