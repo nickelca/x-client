@@ -229,12 +229,12 @@ pub const Error = error{
     window,
 };
 
-pub const Protocol = struct {
+pub const Protocol = packed struct {
     major: u16,
     minor: u16,
 };
 
-pub const ResourceId = struct { base: u32, mask: u32 };
+pub const ResourceId = packed struct { base: u32, mask: u32 };
 
 pub const Format = struct {
     depth: u8,

@@ -84,103 +84,152 @@ pub fn createAndSendAlloc(
     const payload = try createAlloc(alloc, protocol, auth);
     defer alloc.free(payload);
     try server.writeAll(payload);
-    const response_buf = try server.reader().readAllAlloc(alloc, 65536);
-    defer alloc.free(response_buf);
 
-    switch (response_buf[0]) {
-        0 => {
-            error_info.* = .{ .connection_refused = try ConnectionRefused.read(alloc, response_buf) };
+    const reader = server.reader();
+    const header = try reader.readStruct(Header);
+    switch (header.status) {
+        .connection_refused => {
+            error_info.* = .{
+                .connection_refused = ConnectionRefused.read(alloc, server, header),
+            };
             return error.ConnectionRefused;
         },
-        1 => return Success.read(alloc, response_buf),
-        2 => {
-            error_info.* = .{ .further_auth = try FurtherAuth.read(alloc, response_buf) };
+        .success => return Success.read(alloc),
+        .further_auth => {
+            error_info.* = .{
+                .further_auth = FurtherAuth.read(alloc, server, header),
+            };
             return error.FurtherAuth;
         },
         else => return error.MalformedResponse,
     }
 }
 
-pub const Success = struct {
-    const BitmapInfo = struct {
-        const Value = enum(u8) {
-            @"8" = 8,
-            @"16" = 16,
-            @"32" = 32,
-        };
-        scanline_unit: Value,
-        scanline_pad: Value,
-        endian: std.builtin.Endian,
-    };
+const Header = extern struct {
+    status: enum(u8) { success = 0, connection_refused = 1, further_auth = 2, _ },
+    /// only used for connection refused
+    reason_len: u8,
+    /// only used for connection refused and success
     protocol: x.Protocol,
-    vendor: [*:0]u8,
+    data_length_in_4byte_blocks: u32,
+};
+
+pub const Success = struct {
+    const BitmapFormat = struct {
+        endian: std.builtin.Endian,
+        scanline_unit: u8,
+        scanline_pad: u8,
+    };
     release_number: u32,
     resource_id: x.ResourceId,
-    image_endian: std.builtin.Endian,
-    bitmap: BitmapInfo,
-    pixmap_formats: [*:null]?x.Format,
-    roots: [*:null]?x.Screen,
     motion_buffer_size: u32,
+    vendor: []const u8,
     maximum_request_length: u16,
+    root_screens: []x.Screen,
+    pixmap_formats: []x.Format,
+    image_endian: std.builtin.Endian,
+    bitmap_format: BitmapFormat,
     min_keycode: x.Key.Code,
     max_keycode: x.Key.Code,
 
-    fn read(alloc: std.mem.Allocator, buf: []const u8) !Success {
-        _ = alloc; // autofix
-        _ = buf; // autofix
-        return undefined;
+    fn read(alloc: std.mem.Allocator, server: std.net.Stream, header: Header) !Success {
+        var response: Success = undefined;
+        const main_body = try server.reader().readStruct(SuccessBody);
+        response.release_number = main_body.release_number;
+        response.resource_id = main_body.resource_id;
+        response.motion_buffer_size = main_body.motion_buffer_size;
+        response.maximum_request_length = main_body.maximum_request_length;
+        response.image_endian = switch (main_body.image_byte_order) {
+            .lsb_first => .little,
+            .msb_first => .big,
+            else => return error.MalformedResponse,
+        };
+        response.bitmap_format = .{
+            .endian = switch (main_body.bitmap_format.byte_order) {
+                .lsb_first => .little,
+                .msb_first => .big,
+                else => return error.MalformedResponse,
+            },
+            .scanline_unit = main_body.bitmap_format.scanline_unit,
+            .scanline_pad = main_body.bitmap_format.scanline_pad,
+        };
+        response.min_keycode = main_body.min_keycode;
+        response.max_keycode = main_body.max_keycode;
+        const vendor = try alloc.alloc(u8, main_body.vendor_len);
+        errdefer alloc.free(vendor);
+        if (try server.read(vendor) != vendor.len)
+            return error.MalformedResponse;
+        // root_screens, pixmap_formats
+        _ = header; // autofix
+        unreachable; // unimplemented
     }
+};
+
+const SuccessBody = packed struct {
+    const BitmapFormat = packed struct {
+        byte_order: enum(u8) { lsb_first = 0, msb_first = 1, _ },
+        scanline_unit: u8,
+        scanline_pad: u8,
+    };
+    release_number: u32,
+    resource_id: x.ResourceId,
+    motion_buffer_size: u32,
+    vendor_len: u32,
+    maximum_request_length: u16,
+    root_screen_count: u8,
+    pixmap_format_count: u8,
+    image_byte_order: enum(u8) { lsb_first = 0, msb_first = 1, _ },
+    bitmap_format: BitmapFormat,
+    min_keycode: x.Key.Code,
+    max_keycode: x.Key.Code,
+    _unused: u32,
 };
 
 pub const Error = union(enum) {
     connection_refused: ConnectionRefused,
     further_auth: FurtherAuth,
 
-    pub fn destroy(self: Error) void {
+    pub fn destroy(self: Error, alloc: std.mem.Alloc) void {
         switch (self) {
-            inline else => |v| v.destroy(),
+            inline else => |v| {
+                var reason = v.reason;
+                reason.len = v.cap;
+                alloc.free(reason);
+            },
         }
     }
 };
 
 const ConnectionRefused = struct {
-    protocol: x.Protocol,
     reason: []const u8,
+    cap: usize,
 
-    fn read(alloc: std.mem.Allocator, buf: []const u8) !ConnectionRefused {
-        var response: ConnectionRefused = undefined;
-        const reason = try alloc.alloc(u8, buf[1]);
-        response.protocol.major = std.mem.readInt(u16, buf[2..4], native_endian);
-        response.protocol.minor = std.mem.readInt(u16, buf[4..6], native_endian);
-        @memcpy(reason, buf[8..][0..reason.len]);
-        response.reason = reason;
-        return response;
-    }
-
-    fn destroy(self: ConnectionRefused, alloc: std.mem.Allocator) void {
-        alloc.free(self.reason);
+    fn read(alloc: std.mem.Allocator, server: std.net.Stream, header: Header) !ConnectionRefused {
+        const data_len = header.data_length_in_4byte_blocks * 4;
+        const buf = try alloc.alloc(u8, data_len);
+        if (try server.readAll(buf) != buf.len) return error.MalformedResponse;
+        return .{
+            .cap = buf.len,
+            .reason = buf[0..header.reason_len],
+        };
     }
 };
 
 const FurtherAuth = struct {
     reason: []const u8,
+    cap: usize,
 
-    fn read(alloc: std.mem.Allocator, buf: []const u8) !FurtherAuth {
-        std.debug.print("{d}\n", .{buf});
-        var response: FurtherAuth = undefined;
-        const max_len = std.mem.readInt(u16, buf[6..8], native_endian) * 4;
-        const rest = buf[8..][0..max_len];
+    fn read(alloc: std.mem.Allocator, server: std.net.Stream, header: Header) !FurtherAuth {
+        const data_len = header.data_length_in_4byte_blocks * 4;
+        const buf = try alloc.alloc(u8, data_len);
+        if (try server.readAll(buf) != buf.len) return error.MalformedResponse;
         // `n` is not explicitly given. Best thing we can do is treat reason as
         // null-terminated. Nothing I can do if we end up with garbage bytes
-        const len = std.mem.indexOfScalar(u8, rest, 0) orelse max_len;
-        const reason = try alloc.alloc(u8, len);
-        @memcpy(reason, rest[0..len]);
-        response.reason = reason;
-        return response;
-    }
-
-    fn destroy(self: FurtherAuth, alloc: std.mem.Allocator) void {
-        alloc.free(self.reason);
+        const len = std.mem.indexOfScalar(u8, buf, 0) orelse buf.len;
+        return .{
+            .reason = buf[0..len],
+            .cap = buf.len,
+        };
     }
 };
 

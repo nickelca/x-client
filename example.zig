@@ -31,6 +31,7 @@ pub fn main() !void {
                 err_info.connection_refused.protocol.minor,
                 err_info.connection_refused.reason,
             });
+            err_info.destroy();
             return err;
         },
         error.FurtherAuth => {
@@ -40,6 +41,7 @@ pub fn main() !void {
             , .{
                 err_info.further_auth.reason,
             });
+            err_info.destroy();
             return err;
         },
         else => return err,
