@@ -17,13 +17,12 @@ pub fn length(auth_name_len: u16, auth_data_len: u16) usize {
 
 pub const max_length = length(std.math.maxInt(u16), std.math.maxInt(u16));
 
-pub fn createAlloc(
-    alloc: std.mem.Allocator,
+/// Write connection setup packet to provided writer
+pub fn create(
+    writer: anytype,
     protocol: x.Protocol,
     auth: x.Auth,
-) ![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    const writer = buf.writer();
+) !void {
     try writer.writeByte(switch (native_endian) {
         .big => 'B',
         .little => 'l',
@@ -42,7 +41,34 @@ pub fn createAlloc(
     try writer.writeByteNTimes(0, name_pad);
     try writer.writeAll(auth.data);
     try writer.writeByteNTimes(0, data_pad);
+}
+
+/// Allocate buffer and write connection setup packet to it
+pub fn createAlloc(
+    alloc: std.mem.Allocator,
+    protocol: x.Protocol,
+    auth: x.Auth,
+) ![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    try create(buf.writer(), protocol, auth);
     return try buf.toOwnedSlice();
+}
+
+/// Write connection setup packet to provided buffer
+/// Asserts that buffer is big enough to hold packet
+pub fn createBuf(
+    buf: []u8,
+    protocol: x.Protocol,
+    auth: x.Auth,
+) []u8 {
+    // TODO: Should this be a panic or error?
+    std.debug.assert(buf.len >= length(auth.name.len, auth.data.len));
+    var stream = std.io.fixedBufferStream(buf);
+    const writer = stream.writer();
+    create(writer, protocol, auth) catch
+        unreachable; // We know buf is long enough
+    return stream.getWritten();
 }
 
 /// Create and send the connection setup packet
