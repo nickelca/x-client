@@ -18,20 +18,17 @@ pub fn main() !void {
         alloc,
         server,
         .{ .major = 11, .minor = 0 },
-        auth,
+        .{ .name = &.{}, .data = &.{} },
         &err_info,
     ) catch |err| switch (err) {
         error.ConnectionRefused => {
             std.debug.print(
-                \\protocol:{d}.{d}
                 \\reason:{s}
                 \\
             , .{
-                err_info.connection_refused.protocol.major,
-                err_info.connection_refused.protocol.minor,
                 err_info.connection_refused.reason,
             });
-            err_info.destroy();
+            err_info.destroy(alloc);
             return err;
         },
         error.FurtherAuth => {
@@ -41,7 +38,7 @@ pub fn main() !void {
             , .{
                 err_info.further_auth.reason,
             });
-            err_info.destroy();
+            err_info.destroy(alloc);
             return err;
         },
         else => return err,

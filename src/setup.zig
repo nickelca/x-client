@@ -90,14 +90,14 @@ pub fn createAndSendAlloc(
     switch (header.status) {
         .connection_refused => {
             error_info.* = .{
-                .connection_refused = ConnectionRefused.read(alloc, server, header),
+                .connection_refused = try ConnectionRefused.read(alloc, server, header),
             };
             return error.ConnectionRefused;
         },
-        .success => return Success.read(alloc),
+        .success => return Success.read(alloc, server, header),
         .further_auth => {
             error_info.* = .{
-                .further_auth = FurtherAuth.read(alloc, server, header),
+                .further_auth = try FurtherAuth.read(alloc, server, header),
             };
             return error.FurtherAuth;
         },
@@ -189,7 +189,7 @@ pub const Error = union(enum) {
     connection_refused: ConnectionRefused,
     further_auth: FurtherAuth,
 
-    pub fn destroy(self: Error, alloc: std.mem.Alloc) void {
+    pub fn destroy(self: Error, alloc: std.mem.Allocator) void {
         switch (self) {
             inline else => |v| {
                 var reason = v.reason;
