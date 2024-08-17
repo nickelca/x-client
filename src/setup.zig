@@ -106,7 +106,7 @@ pub fn createAndSendAlloc(
 }
 
 const Header = extern struct {
-    status: enum(u8) { success = 0, connection_refused = 1, further_auth = 2, _ },
+    status: enum(u8) { connection_refused = 0, success = 1, further_auth = 2, _ },
     /// only used for connection refused
     reason_len: u8,
     /// only used for connection refused and success
