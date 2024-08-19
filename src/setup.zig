@@ -205,7 +205,7 @@ const ConnectionRefused = struct {
     cap: usize,
 
     fn read(alloc: std.mem.Allocator, server: std.net.Stream, header: Header) !ConnectionRefused {
-        const data_len = header.data_length_in_4byte_blocks * 4;
+        const data_len = @as(usize, header.data_length_in_4byte_blocks) * 4;
         const buf = try alloc.alloc(u8, data_len);
         if (try server.readAll(buf) != buf.len) return error.MalformedResponse;
         return .{
@@ -220,7 +220,7 @@ const FurtherAuth = struct {
     cap: usize,
 
     fn read(alloc: std.mem.Allocator, server: std.net.Stream, header: Header) !FurtherAuth {
-        const data_len = header.data_length_in_4byte_blocks * 4;
+        const data_len = @as(usize, header.data_length_in_4byte_blocks) * 4;
         const buf = try alloc.alloc(u8, data_len);
         if (try server.readAll(buf) != buf.len) return error.MalformedResponse;
         // `n` is not explicitly given. Best thing we can do is treat reason as
