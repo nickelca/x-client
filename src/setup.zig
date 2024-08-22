@@ -86,7 +86,7 @@ pub fn createAndSendAlloc(
     try server.writeAll(payload);
 
     const reader = server.reader();
-    const header = try reader.readStruct(Header);
+    const header = try common.readStruct(Header, reader);
     switch (header.status) {
         .connection_refused => {
             error_info.* = .{
@@ -111,7 +111,7 @@ const Header = extern struct {
     reason_len: u8,
     /// only used for connection refused and success
     protocol: x.Protocol,
-    data_length_in_4byte_blocks: u32,
+    data_length_in_4byte_blocks: u16,
 };
 
 pub const Success = struct {
@@ -134,7 +134,7 @@ pub const Success = struct {
 
     fn read(alloc: std.mem.Allocator, server: std.net.Stream, header: Header) !Success {
         var response: Success = undefined;
-        const main_body = try server.reader().readStruct(SuccessBody);
+        const main_body = try common.readStruct(SuccessBody, server.reader());
         response.release_number = main_body.release_number;
         response.resource_id = main_body.resource_id;
         response.motion_buffer_size = main_body.motion_buffer_size;
@@ -206,8 +206,12 @@ const ConnectionRefused = struct {
 
     fn read(alloc: std.mem.Allocator, server: std.net.Stream, header: Header) !ConnectionRefused {
         const data_len = @as(usize, header.data_length_in_4byte_blocks) * 4;
+        std.debug.print("{any}\n", .{data_len});
         const buf = try alloc.alloc(u8, data_len);
-        if (try server.readAll(buf) != buf.len) return error.MalformedResponse;
+        if (try server.read(buf) != buf.len) {
+            // std.debug.print("{any}\n", .{buf});
+            return error.MalformedResponse;
+        }
         return .{
             .cap = buf.len,
             .reason = buf[0..header.reason_len],
